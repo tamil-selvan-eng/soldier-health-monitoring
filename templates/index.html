@@ -1,1 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soldier Health Monitoring System - Hardware Link</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap"
+        rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 1rem;
+            z-index: 1;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .danger-glow {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Overlay transition */
+        #map-overlay {
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        #map-overlay.hidden-overlay {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* Leaflet Dark Mode Fix */
+        .leaflet-container {
+            background: #111 !important;
+        }
+
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tighter uppercase">Soldier Tactical Dashboard</h1>
+                <p class="text-xs text-gray-500 uppercase tracking-widest mono">Hardware Integration: Real-Time Link</p>
+            </div>
+
+            <div id="connection-status"
+                class="px-4 py-2 rounded-full bg-white/5 border border-white/10 flex items-center gap-3">
+                <span id="dot" class="status-dot bg-gray-500"></span>
+                <span id="status-text" class="text-xs font-bold uppercase tracking-wider text-gray-400">Checking
+                    Link...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Vitals Column -->
+            <div class="lg:col-span-4 space-y-4">
+
+                <!-- Heart Rate -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Heart Rate</span>
+                        <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="hr-val" class="text-5xl font-black mono">--</span>
+                        <span class="text-xs text-gray-500 font-bold">BPM</span>
+                    </div>
+                    <!-- FIX: Added normal range hint for context -->
+                    <p class="text-[10px] text-gray-600 mt-2 mono">Normal: 50 – 120 BPM</p>
+                </div>
+
+                <!-- Temperature -->
+                <div class="card p-6 rounded-2xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Body Temp</span>
+                        <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                        </svg>
+                    </div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="temp-val" class="text-5xl font-black mono">--</span>
+                        <span class="text-xs text-gray-500 font-bold">°C</span>
+                    </div>
+                    <!-- FIX: Added normal range hint for context -->
+                    <p class="text-[10px] text-gray-600 mt-2 mono">Normal: 35.0 – 38.0 °C</p>
+                </div>
+
+                <!-- Health Status -->
+                <div id="health-card" class="card p-6 rounded-2xl border-2 border-transparent">
+                    <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold block mb-2">Health
+                        Status</span>
+                    <div id="health-status-text" class="text-2xl font-black uppercase tracking-tighter text-gray-600">
+                        WAITING...</div>
+                </div>
+
+                <!-- FIX: Added last updated timestamp card -->
+                <div class="card p-4 rounded-2xl">
+                    <span class="text-[10px] uppercase tracking-widest text-gray-500 font-bold block mb-1">Last
+                        Updated</span>
+                    <span id="last-updated" class="text-xs mono text-gray-400">--</span>
+                </div>
+
+            </div>
+
+            <!-- Map Column -->
+            <div class="lg:col-span-8">
+                <div class="card p-2 rounded-2xl h-full relative overflow-hidden">
+                    <div id="map"></div>
+
+                    <!-- FIX: Overlay now uses class-based visibility instead of inline opacity only -->
+                    <div id="map-overlay"
+                        class="absolute inset-0 z-[1000] bg-black/80 flex items-center justify-center text-center p-8">
+                        <div>
+                            <div
+                                class="w-16 h-16 border-4 border-white/10 border-t-white rounded-full animate-spin mx-auto mb-4">
+                            </div>
+                            <h3 id="overlay-title" class="text-xl font-bold uppercase tracking-tight mb-2">LoRa Device
+                                Not Connected</h3>
+                            <p id="overlay-msg" class="text-sm text-gray-500 max-w-xs mx-auto">Please connect your LoRa
+                                Receiver (SX1278 + Arduino Nano) to the serial port.</p>
+                        </div>
+                    </div>
+
+                    <!-- Coordinates Badge -->
+                    <div
+                        class="absolute bottom-6 left-6 z-[500] bg-black/80 backdrop-blur-md px-4 py-2 rounded-lg border border-white/10 mono text-[10px] text-gray-400">
+                        LAT: <span id="lat-val" class="text-white">--</span> &nbsp;|&nbsp;
+                        LON: <span id="lon-val" class="text-white">--</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialize Map
+        const map = L.map('map', { zoomControl: false }).setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let marker = null;
+
+        // FIX: Grab overlay sub-elements once, using IDs instead of fragile querySelector
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayMsg = document.getElementById('overlay-msg');
+        const overlay = document.getElementById('map-overlay');
+
+        function updateMarker(lat, lon, isDanger) {
+            const color = isDanger ? '#ef4444' : '#10b981';
+            const icon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px ${color};"></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+
+            if (!marker) {
+                marker = L.marker([lat, lon], { icon }).addTo(map);
+            } else {
+                marker.setLatLng([lat, lon]);
+                marker.setIcon(icon);
+            }
+            map.setView([lat, lon], 15);
+        }
+
+        // FIX: Track previous status to avoid redundant DOM updates
+        let prevStatus = null;
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/data');
+
+                // FIX: Handle non-OK HTTP responses gracefully
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                const dot = document.getElementById('dot');
+                const statusText = document.getElementById('status-text');
+                const healthCard = document.getElementById('health-card');
+                const healthStatusText = document.getElementById('health-status-text');
+
+                if (data.status === 'normal' || data.status === 'danger') {
+                    // --- Connected State ---
+                    dot.className = 'status-dot bg-emerald-500 shadow-[0_0_10px_#10b981]';
+                    statusText.innerText = 'LoRa Link Active';
+                    statusText.className = 'text-xs font-bold uppercase tracking-wider text-emerald-500';
+
+                    // FIX: Use class-based overlay hide (handles opacity + visibility + pointer-events)
+                    overlay.classList.add('hidden-overlay');
+
+                    // Update Vitals — values already rounded by backend
+                    document.getElementById('hr-val').innerText = data.heart_rate;
+                    document.getElementById('temp-val').innerText = data.temperature;
+                    document.getElementById('lat-val').innerText = data.latitude.toFixed(6);
+                    document.getElementById('lon-val').innerText = data.longitude.toFixed(6);
+
+                    // FIX: Show last updated timestamp
+                    const now = new Date();
+                    document.getElementById('last-updated').innerText =
+                        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    // Update Health Status
+                    const isDanger = data.status === 'danger';
+                    healthStatusText.innerText = isDanger ? 'DANGER' : 'NORMAL';
+
+                    if (isDanger) {
+                        healthCard.className = 'card p-6 rounded-2xl border-2 border-red-500 danger-glow';
+                        healthStatusText.className = 'text-2xl font-black uppercase tracking-tighter text-red-500 animate-pulse';
+                    } else {
+                        healthCard.className = 'card p-6 rounded-2xl border-2 border-emerald-500/30';
+                        healthStatusText.className = 'text-2xl font-black uppercase tracking-tighter text-emerald-500';
+                    }
+
+                    updateMarker(data.latitude, data.longitude, isDanger);
+
+                } else {
+                    // --- Disconnected State ---
+                    dot.className = 'status-dot bg-red-500 shadow-[0_0_10px_#ef4444]';
+                    statusText.innerText = 'LoRa Device Not Connected';
+                    statusText.className = 'text-xs font-bold uppercase tracking-wider text-red-500';
+
+                    // FIX: Show overlay properly
+                    overlay.classList.remove('hidden-overlay');
+
+                    healthStatusText.innerText = 'WAITING...';
+                    healthStatusText.className = 'text-2xl font-black uppercase tracking-tighter text-gray-600';
+                    healthCard.className = 'card p-6 rounded-2xl border-2 border-transparent';
+
+                    // Reset vitals
+                    document.getElementById('hr-val').innerText = '--';
+                    document.getElementById('temp-val').innerText = '--';
+                    document.getElementById('lat-val').innerText = '--';
+                    document.getElementById('lon-val').innerText = '--';
+                    document.getElementById('last-updated').innerText = '--';
+
+                    // FIX: Use dedicated ID elements instead of querySelector (more reliable)
+                    if (data.status === 'pyserial_missing') {
+                        overlayTitle.innerText = 'Software Dependency Missing';
+                        overlayMsg.innerText = 'The "pyserial" library is not installed. Run: pip install pyserial';
+                    } else {
+                        overlayTitle.innerText = 'LoRa Device Not Connected';
+                        overlayMsg.innerText = 'Please connect your LoRa Receiver (SX1278 + Arduino Nano) to the serial port.';
+                    }
+                }
+
+            } catch (err) {
+                // FIX: Show visual feedback on fetch failure instead of silent console log
+                console.error("Fetch error:", err);
+                document.getElementById('dot').className = 'status-dot bg-yellow-500';
+                document.getElementById('status-text').innerText = 'Server Unreachable';
+                document.getElementById('status-text').className = 'text-xs font-bold uppercase tracking-wider text-yellow-500';
+            }
+        }
+
+        // Poll every 2 seconds
+        setInterval(updateDashboard, 2000);
+        updateDashboard();
+    </script>
+</body>
+
+</html>
