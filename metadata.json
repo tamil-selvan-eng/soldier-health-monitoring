@@ -1,0 +1,5 @@
+{
+  "name": "Soldier Health Monitoring and Position Tracking System using LoRaWAN",
+  "description": "Real-time IoT dashboard for monitoring soldier vitals (Heart Rate, Temp) and GPS tracking using LoRa SX1278. Only displays live hardware data.",
+  "requestFramePermissions": ["geolocation"]
+}
